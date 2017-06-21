@@ -1,0 +1,31 @@
+version: "2"
+
+services:
+  backend:
+    build: .
+    image: golang:1.8.3-alpine
+    container_name: golang_echo
+    volumes:
+      - .:/go/src/github.com/lempiy/echo_api
+    working_dir: /go/src/github.com/lempiy/echo_api
+    ports:
+      - "8001:8001"
+    links:
+      - postgres
+    command: fresh
+    environment:
+      DB_PASSWORD: xxpassxx
+      DB_USER: db_user
+      DB_DB: films
+
+  postgres:
+    image: postgres:latest
+    container_name: postgreSQL
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgresql:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: xxpassxx
+      POSTGRES_USER: db_user
+      POSTGRES_DB: films
