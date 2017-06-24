@@ -16,7 +16,7 @@ func (f *film) Create(film *types.Film, genresIDs []int) error {
 	return f.postFilmGenres(ID, genresIDs)
 }
 
-func (f *film) Read(params *types.GetFilmParams) ([]types.Film, error) {
+func (f *film) Read(params *types.GetFilmParams) ([]types.Film, bool, int, error) {
 	var films []types.Film
 	var film types.Film
 	var count int
@@ -37,18 +37,19 @@ func (f *film) Read(params *types.GetFilmParams) ([]types.Film, error) {
 		film = types.Film{}
 		err = rows.Scan(&film.ID, &film.Name, &film.Year, &film.AddedAt, &count)
 		if err != nil {
-			return nil, err
+			return nil, false, 0, err
 		}
 		genres, err := Genre.ReadByFilmID(film.ID)
 		if err != nil {
 			fmt.Printf("Error while getting genres for film - %s\n", film.ID)
-			return nil, err
+			return nil, false, 0, err
 		}
 		film.Genres = genres
 		films = append(films, film)
 	}
 	fmt.Println("count:", count)
-	return films, nil
+	left := count - (params.Offset + len(films)) > 0
+	return films, left, count, nil
 }
 
 //ReadByID returns pointer to types.Film by its ID
@@ -71,6 +72,44 @@ type rent struct {
 	ID int
 	FilmID int
 	UserID int
+}
+
+func (f *film) ReadRentedFilms(userID int, params *types.GetFilmParams) ([]types.Film, bool, int, error) {
+	var films []types.Film
+	var film types.Film
+	var count int
+	limit := "ALL"
+	if params.Limit != 0 {
+		limit = strconv.Itoa(params.Limit)
+	}
+	sqlQuery := fmt.Sprintf(
+		`WITH r AS (SELECT *, COUNT(*) OVER () AS total_items
+         		FROM rented_film
+         		WHERE user_id=$1)
+				SELECT f.id, f.name, f.year, f.added_at, total_items
+					FROM r
+					LEFT JOIN film f ON r.film_id=f.id
+				ORDER BY f.added_at ASC
+				LIMIT %s OFFSET %d;`, limit, params.Offset)
+	rows := Database.Query(sqlQuery, userID)
+	defer rows.Close()
+	for rows.Next() {
+		film = types.Film{}
+		err = rows.Scan(&film.ID, &film.Name, &film.Year, &film.AddedAt, &count)
+		if err != nil {
+			return nil, false, 0, err
+		}
+		genres, err := Genre.ReadByFilmID(film.ID)
+		if err != nil {
+			fmt.Printf("Error while getting genres for film - %s\n", film.ID)
+			return nil, false, 0, err
+		}
+		film.Genres = genres
+		films = append(films, film)
+	}
+	fmt.Println("count:", count)
+	left := count - (params.Offset + len(films)) > 0
+	return films, left, count, nil
 }
 
 //ReadRentByID returns pointer to rent struct by film ID
@@ -154,37 +193,4 @@ func(f *film) FinishRent(filmID int, userID int) (notExist bool, err error) {
 	}
 	err = Database.SingleQuery(sqlQuery, filmID, userID)
 	return
-}
-
-//ReadRentedFilms returns the list of rented films for particular user
-func (f *film) ReadRentedFilms(userID int, params *types.GetFilmParams) ([]types.Film, error) {
-	var films []types.Film
-	var film types.Film
-	limit := "ALL"
-	if params.Limit != 0 {
-		limit = strconv.Itoa(params.Limit)
-	}
-	sqlQuery := fmt.Sprintf(
-		`SELECT f.id, f.name, f.year, f.added_at
-					FROM rented_film r
-					LEFT JOIN film f ON r.film_id=f.id
-				ORDER BY f.added_at ASC
-				LIMIT %s OFFSET %d;`, limit, params.Offset)
-	rows := Database.Query(sqlQuery)
-	defer rows.Close()
-	for rows.Next() {
-		film = types.Film{}
-		err = rows.Scan(&film.ID, &film.Name, &film.Year, &film.AddedAt)
-		if err != nil {
-			return nil, err
-		}
-		genres, err := Genre.ReadByFilmID(film.ID)
-		if err != nil {
-			fmt.Printf("Error while getting genres for film - %s\n", film.ID)
-			return nil, err
-		}
-		film.Genres = genres
-		films = append(films, film)
-	}
-	return films, nil
 }

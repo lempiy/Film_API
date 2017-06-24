@@ -27,19 +27,26 @@ func Add(c echo.Context) error {
 	})
 }
 
+type restFilm struct {
+	Left bool `json:"left"`
+	Count int `json:"count"`
+	Result []types.Film `json:"result"`
+}
+
 func Get(c echo.Context) error {
 	g := new(types.GetFilmParams)
 	if err := c.Bind(g); err != nil {
 		return err
 	}
-	films, err := models.Film.Read(g)
+	films, left, count, err := models.Film.Read(g)
+	response := &restFilm{left, count, films}
 	if err != nil {
 		fmt.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Something went wrong",
 		})
 	}
-	return c.JSON(http.StatusOK, films)
+	return c.JSON(http.StatusOK, response)
 }
 
 type rentData struct {
@@ -125,12 +132,13 @@ func GetRentedFilms(c echo.Context) error {
 	if err := c.Bind(g); err != nil {
 		return err
 	}
-	films, err := models.Film.ReadRentedFilms(int(userID.(float64)), g)
+	films, left, count, err := models.Film.ReadRentedFilms(int(userID.(float64)), g)
+	response := &restFilm{left, count, films}
 	if err != nil {
 		fmt.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Something went wrong",
 		})
 	}
-	return c.JSON(http.StatusOK, films)
+	return c.JSON(http.StatusOK, response)
 }
