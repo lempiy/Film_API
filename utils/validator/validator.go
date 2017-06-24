@@ -25,3 +25,11 @@ func ValidateUserData(u * types.User) (bool, string) {
 	}
 	return true, ""
 }
+
+func ValidateGenresQuery(genresQuery string) (bool, string) {
+	queryParamsPattern := regexp.MustCompile(`^\d+(,\d+)*$`)
+	if !queryParamsPattern.MatchString(genresQuery) {
+		return false, fmt.Sprintf("Incorrect genre query. Genres should be seperated by commas.")
+	}
+	return true, ""
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/lempiy/echo_api/models"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/lempiy/echo_api/utils/validator"
 )
 
 func Add(c echo.Context) error {
@@ -37,6 +38,11 @@ func Get(c echo.Context) error {
 	g := new(types.GetFilmParams)
 	if err := c.Bind(g); err != nil {
 		return err
+	}
+	if isOk, message := validator.ValidateGenresQuery(g.Genre); !isOk {
+		return c.JSON(http.StatusForbidden, map[string]string{
+			"error": message,
+		})
 	}
 	films, left, count, err := models.Film.Read(g)
 	response := &restFilm{left, count, films}

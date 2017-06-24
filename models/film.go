@@ -18,7 +18,11 @@ func (f *film) Create(film *types.Film, genresIDs []int) error {
 
 func (f *film) Read(params *types.GetFilmParams) ([]types.Film, bool, int, error) {
 	yearFilter := f.yearFilter(params.Year, 2, true)
-	sqlQuery :=
+	var sqlQuery string
+	if len(params.Genre) != 0 {
+		sqlQuery = f.queryGenreFilter(yearFilter, params.Limit, params.Genre)
+	} else {
+		sqlQuery =
 			fmt.Sprintf(`WITH f AS (SELECT *, COUNT(*) OVER () AS total_items
          		FROM film f
          		%s)
@@ -26,6 +30,7 @@ func (f *film) Read(params *types.GetFilmParams) ([]types.Film, bool, int, error
 					FROM f
 				ORDER BY f.added_at ASC
 			LIMIT %s OFFSET $1;`, yearFilter, f.getLimit(params.Limit))
+	}
 	return f.getFilms(params, sqlQuery)
 }
 
@@ -63,7 +68,7 @@ func (f *film) getFilms(params *types.GetFilmParams, query string, arguments ...
 	if params.Year != 0 {
 		agrs = append(agrs, params.Year)
 	}
-
+	fmt.Print(query)
 	rows := Database.Query(query, agrs...)
 	defer rows.Close()
 	for rows.Next() {
@@ -80,24 +85,59 @@ func (f *film) getFilms(params *types.GetFilmParams, query string, arguments ...
 		film.Genres = genres
 		films = append(films, film)
 	}
-	fmt.Println("count:", count)
 	left := count - (params.Offset + len(films)) > 0
 	return films, left, count, nil
 }
 
 func (f *film) ReadRentedFilms(userID int, params *types.GetFilmParams) ([]types.Film, bool, int, error) {
 	yearFilter := f.yearFilter(params.Year, 3, false)
-	sqlQuery :=
-		fmt.Sprintf(`WITH r AS (SELECT *, COUNT(*) OVER () AS total_items
-         		FROM rented_film r
-         			LEFT JOIN film f ON r.film_id=f.id
-         		WHERE r.user_id=$2 %s)
-				SELECT f.id, f.name, f.year, f.added_at, total_items
-					FROM r
-					LEFT JOIN film f ON r.film_id=f.id
-				ORDER BY f.added_at ASC
-				LIMIT %s OFFSET $1;`, yearFilter, f.getLimit(params.Limit))
+	var sqlQuery string
+	if params.Genre != "" {
+		sqlQuery = f.queryGenreFilterForRented(yearFilter, params.Limit, params.Genre)
+	} else {
+		sqlQuery =
+			fmt.Sprintf(`WITH r AS (SELECT *, COUNT(*) OVER () AS total_items
+					FROM rented_film r
+						LEFT JOIN film f ON r.film_id=f.id
+					WHERE r.user_id=$2 %s)
+					SELECT f.id, f.name, f.year, f.added_at, total_items
+						FROM r
+						LEFT JOIN film f ON r.film_id=f.id
+					ORDER BY f.added_at ASC
+					LIMIT %s OFFSET $1;`, yearFilter, f.getLimit(params.Limit))
+	}
 	return f.getFilms(params, sqlQuery, userID)
+}
+
+func (f *film) queryGenreFilter(yearFilter string, limit int, genres string) string {
+	sqlQuery :=
+		fmt.Sprintf(`WITH f AS (SELECT DISTINCT(g.film_id), f.id, f.name, f.year, f.added_at,
+					COUNT(*) OVER () AS total_items
+				FROM film_genre g
+					LEFT JOIN film f ON g.film_id=f.id
+				WHERE g.genre_id IN (%s)
+					%s)
+				SELECT f.id, f.name, f.year, f.added_at, total_items
+						FROM f
+				ORDER BY f.added_at ASC
+				LIMIT %s OFFSET $1;`, genres, yearFilter, f.getLimit(limit))
+	return sqlQuery
+}
+
+func (f *film) queryGenreFilterForRented(yearFilter string, limit int, genres string) string {
+	sqlQuery :=
+		fmt.Sprintf(`WITH f AS (SELECT DISTINCT(g.film_id), f.id, f.name, f.year, f.added_at,
+					COUNT(*) OVER () AS total_items
+				FROM film_genre g
+					LEFT JOIN film f ON g.film_id=f.id
+					LEFT JOIN rented_film r ON r.film_id=g.film_id
+				WHERE g.genre_id IN (%s) AND r.user_id=$2
+					%s)
+				SELECT f.id, f.name, f.year, f.added_at, total_items
+						FROM f
+				ORDER BY f.added_at ASC
+				LIMIT %s OFFSET $1;`, genres, yearFilter, f.getLimit(limit))
+	return sqlQuery
 }
 
 func (f *film) getLimit(limit int) string {
@@ -197,5 +237,12 @@ func(f *film) FinishRent(filmID int, userID int) (notExist bool, err error) {
 		return
 	}
 	err = Database.SingleQuery(sqlQuery, filmID, userID)
+	return
+}
+
+func sliceItoa(sliceOfInt []int) (sliceOfStr []string) {
+	for _, n := range sliceOfInt {
+		sliceOfStr = append(sliceOfStr, strconv.Itoa(n))
+	}
 	return
 }
