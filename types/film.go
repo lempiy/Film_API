@@ -16,4 +16,6 @@ type PostFilm struct {
 type GetFilmParams struct {
 	Limit int `query:"limit"`
 	Offset int `query:"offset"`
+	Year int `query:"year"`
+	Genre []int `query:"genre"`
 }
