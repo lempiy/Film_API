@@ -52,7 +52,7 @@ type rent struct {
 }
 
 func (f *film) getFilms(params *types.GetFilmParams, query string, arguments ...interface{}) ([]types.Film, bool, int, error) {
-	var films []types.Film
+	films := make([]types.Film, 0)
 	var film types.Film
 	var count int
 	agrs := []interface{}{
