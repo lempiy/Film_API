@@ -6,9 +6,14 @@ import (
 	"github.com/lempiy/echo_api/views/user"
 	"net/http"
 	"github.com/lempiy/echo_api/views/film"
+	"os"
 )
 
 func main() {
+	PORT := os.Getenv("PORT")
+	if PORT == "" {
+		PORT = "8001"
+	}
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -34,5 +39,5 @@ func main() {
 	r := e.Group("/test")
 	r.Use(middleware.JWT([]byte("secret")))
 	r.GET("", user.Test)
-	e.Logger.Fatal(e.Start(":8001"))
+	e.Logger.Fatal(e.Start(":"+PORT))
 }
