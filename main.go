@@ -20,7 +20,7 @@ func main() {
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
 	}))
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello world")
+		return c.String(http.StatusOK, "Film API 2017.")
 	})
 	e.POST("/login", user.Login)
 	e.POST("/auth", user.Register)
