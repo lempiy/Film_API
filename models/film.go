@@ -17,7 +17,7 @@ func (f *film) Create(film *types.Film, genresIDs []int) error {
 }
 
 func (f *film) Read(params *types.GetFilmParams) ([]types.Film, bool, int, error) {
-	yearFilter := f.yearFilter(params.Year, 2, true)
+	yearFilter := f.yearFilter(params.Year, 2, false)
 	var sqlQuery string
 	if len(params.Genre) != 0 {
 		sqlQuery = f.queryGenreFilter(yearFilter, params.Limit, params.Genre)
